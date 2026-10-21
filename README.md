@@ -4,15 +4,25 @@ Desktop app for custom cards. The frames, icons, fonts, and printed backs come f
 
 ## Run
 
-Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) and start it. On WSL, also turn on Settings > Resources > WSL integration for this distro. Then, from the project folder:
+Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) and start it.
+
+On Windows, double-click `run.bat`, or from the project folder in Command Prompt or PowerShell:
+
+```bat
+run.bat
+```
+
+On WSL or Linux, from the project folder:
 
 ```bash
 ./run
 ```
 
-That is the only command. Docker runs the Python side that draws the cards. The window is the Windows Electron app, on the Windows desktop. The first run builds the image and can take a few minutes. The first time the server starts, it also prepares the card frames from the Photoshop templates.
+On WSL, also turn on Docker Desktop's Settings > Resources > WSL integration for this distro.
 
-In Cursor or VS Code, **Reopen in Container** opens that same Python environment. Use `./run` when you want the window.
+That is the only command. Docker runs the Python side that draws the cards. The window is the Windows Electron app. The first run builds the image and can take a few minutes. The first time the server starts, it also prepares the card frames from the Photoshop templates.
+
+In Cursor or VS Code, **Reopen in Container** opens that same Python environment. Use `run.bat` or `./run` when you want the window.
 
 ## Setup without Docker
 

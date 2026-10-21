@@ -14,7 +14,16 @@ DESKTOP = Path(__file__).resolve().parent
 VERSION = "45.0.0"
 
 
+def _windows():
+    return os.name == "nt"
+
+
 def _local_root():
+    if _windows():
+        local = os.environ.get("LOCALAPPDATA")
+        if not local:
+            raise SystemExit("LOCALAPPDATA is not set.")
+        return Path(local) / "card-creator"
     local = subprocess.check_output(
         ["cmd.exe", "/c", "echo %LOCALAPPDATA%"],
         text=True,
@@ -24,7 +33,9 @@ def _local_root():
     return Path(subprocess.check_output(["wslpath", "-u", local], text=True).strip()) / "card-creator"
 
 
-def _windows_path(path):
+def _app_argument(path):
+    if _windows():
+        return str(path)
     return subprocess.check_output(["wslpath", "-w", str(path)], text=True).strip()
 
 
@@ -69,11 +80,12 @@ def main():
         shutil.copy2(DESKTOP / name, app_dir / name)
     env = os.environ.copy()
     env["CARD_URL"] = url
-    shared = [part for part in env.get("WSLENV", "").split(":") if part and not part.startswith("CARD_URL")]
-    shared.append("CARD_URL")
-    env["WSLENV"] = ":".join(shared)
+    if not _windows():
+        shared = [part for part in env.get("WSLENV", "").split(":") if part and not part.startswith("CARD_URL")]
+        shared.append("CARD_URL")
+        env["WSLENV"] = ":".join(shared)
     process = subprocess.Popen(
-        [str(runtime / "electron.exe"), _windows_path(app_dir), "--", f"--card-url={url}"],
+        [str(runtime / "electron.exe"), _app_argument(app_dir), "--", f"--card-url={url}"],
         env=env,
         cwd=str(runtime),
     )
