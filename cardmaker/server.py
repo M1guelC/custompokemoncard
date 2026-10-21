@@ -32,6 +32,7 @@ def schema():
                 "flip": spec.get("flip", False),
                 "defaults": spec["defaults"],
                 "sections": spec["sections"],
+                "ascension": spec.get("ascension") or [],
             }
         )
     return {

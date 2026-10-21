@@ -9,7 +9,7 @@ from cardmaker.layout import BUILD_JOBS, ICON_SOURCES, TYPES
 ROOT = Path(__file__).resolve().parents[1]
 CONTENT = ROOT / "Custom Content" / "Custom Content"
 CACHE = ROOT / "cache"
-VERSION = "1"
+VERSION = "2"
 
 FONTS = {
     "display": CONTENT / "Fonts" / "HYWenHei.ttf",
@@ -164,6 +164,64 @@ def build_frames():
         opened.clear()
 
 
+def build_drop_icons():
+    """The item drop sits in the enemy file, hidden, in the same slot as the event icon."""
+    path = CACHE / "drops" / "item.png"
+    if path.exists():
+        return
+    try:
+        from psd_tools import PSDImage
+    except ImportError:
+        return
+
+    psd = PSDImage.open(CONTENT / "Cards/Enemies Template.psd")
+    for layer in _walk(psd):
+        if norm_name(layer.name) != "items" or not layer.is_group():
+            continue
+        for child in layer:
+            if child.kind != "pixel":
+                continue
+            image = child.topil()
+            if image is None:
+                continue
+            _save(image.convert("RGBA"), path)
+            return
+
+
+def _find_layer(layers, name):
+    for layer in layers:
+        if norm_name(layer.name) == name:
+            return layer
+        if layer.is_group():
+            found = _find_layer(layer, name)
+            if found:
+                return found
+    return None
+
+
+def build_skill_panels():
+    """The gray skill panel is its own shape, so the editor can fade it."""
+    from psd_tools import PSDImage
+
+    sources = (
+        ("Cards/Character Template.psd", "character"),
+        ("Cards/Enemies Template.psd", "enemy"),
+    )
+    for relative, name in sources:
+        path = CACHE / "panels" / f"{name}.png"
+        if path.exists():
+            continue
+        psd = PSDImage.open(CONTENT / relative)
+        layer = _find_layer(psd, "ability box")
+        if layer is None:
+            continue
+        piece = layer.composite().convert("RGBA")
+        canvas = Image.new("RGBA", (psd.width, psd.height), (0, 0, 0, 0))
+        canvas.alpha_composite(piece, (layer.left, layer.top))
+        _save(canvas, path)
+        print(f"  skill panel {name}", flush=True)
+
+
 def ensure_cache():
     version_path = CACHE / "version.txt"
     if version_path.exists() and version_path.read_text().strip() != VERSION:
@@ -173,6 +231,8 @@ def ensure_cache():
     CACHE.mkdir(parents=True, exist_ok=True)
     print("Preparing card frames from Custom Content…", flush=True)
     build_icons()
+    build_drop_icons()
+    build_skill_panels()
     build_frames()
     version_path.write_text(VERSION)
     print("Frames ready.", flush=True)

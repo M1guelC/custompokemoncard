@@ -106,6 +106,11 @@ def render(card_id, data, photo, side="front"):
             frame = frame.crop((0, 0, width, height))
         canvas.alpha_composite(frame)
 
+    _apply_skill_panel(canvas, spec, data)
+
+    for icon in spec.get("drop_icons") or []:
+        _paste_drop(canvas, icon)
+
     if photo is not None and art_box and spec.get("art_above"):
         _place_photo(canvas, photo, art_box, data, spec.get("art_radius", 0))
 
@@ -115,8 +120,16 @@ def render(card_id, data, photo, side="front"):
         _paste_icon(canvas, data.get(f"move{index}_type"), move["icon"], 0)
 
     draw = ImageDraw.Draw(canvas)
+    ascension = _ascension_label(data)
+    mark = spec.get("ascension_mark") if ascension else None
     for item in spec.get("texts") or []:
-        _draw_block(draw, data.get(item["id"], ""), _contrast(canvas, item))
+        style = dict(item)
+        if mark and item.get("id") == "name":
+            left, top, right, bottom = style["box"]
+            style["box"] = (left, top, mark["box"][0] - 12, bottom)
+        _draw_block(draw, data.get(item["id"], ""), _contrast(canvas, style))
+    if mark:
+        _draw_block(draw, ascension, _contrast(canvas, mark))
     for index, move in enumerate(spec.get("moves") or [], start=1):
         _draw_block(draw, data.get(f"move{index}_name", ""), _contrast(canvas, {**MOVE_NAME_STYLE, "box": move["name"]}))
         if move.get("value"):
@@ -167,6 +180,72 @@ def _place_photo(canvas, photo, box, data, radius=0):
     canvas.alpha_composite(cropped, (left, top))
 
 
+def _apply_skill_panel(canvas, spec, data):
+    relative = spec.get("skill_panel")
+    if not relative:
+        return
+    path = CACHE / relative
+    if not path.exists():
+        from cardmaker.assets import build_skill_panels
+
+        build_skill_panels()
+    if not path.exists():
+        return
+    amount = _number(data.get("skill_opacity"), 40, 0, 100)
+    if amount <= 0:
+        return
+    panel = _load(path)
+    native = panel.getchannel("A").getextrema()[1] or 1
+    scale = (amount / 100) * (255 / native)
+    if abs(scale - 1) > 0.02:
+        panel = panel.copy()
+        panel.putalpha(panel.getchannel("A").point(lambda value: max(0, min(255, int(value * scale)))))
+    canvas.alpha_composite(panel)
+
+
+def _paste_drop(canvas, spec):
+    icon = _equipment_badge() if spec["file"] == "equipment" else _drop_art(spec["file"])
+    if icon is None:
+        return
+    left, top, right, bottom = spec["box"]
+    width = max(1, right - left)
+    height = max(1, bottom - top)
+    scale = min(width / icon.width, height / icon.height)
+    sized = icon.resize(
+        (max(1, int(icon.width * scale)), max(1, int(icon.height * scale))),
+        Image.Resampling.LANCZOS,
+    )
+    canvas.alpha_composite(
+        sized,
+        (left + (width - sized.width) // 2, top + (height - sized.height) // 2),
+    )
+
+
+def _drop_art(name):
+    path = CACHE / "drops" / f"{name}.png"
+    if not path.exists():
+        from cardmaker.assets import build_drop_icons
+
+        build_drop_icons()
+    if not path.exists():
+        return None
+    return _load(path)
+
+
+@lru_cache(maxsize=1)
+def _equipment_badge():
+    size = 160
+    image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    pen = ImageDraw.Draw(image)
+    pen.ellipse((4, 4, size - 5, size - 5), fill=(92, 64, 24, 245), outline=(236, 196, 92, 255), width=8)
+    pen.ellipse((16, 16, size - 17, size - 17), outline=(236, 210, 140, 255), width=3)
+    pen.line((42, 132, 128, 36), fill=(236, 242, 246, 255), width=10)
+    pen.polygon([(128, 36), (116, 34), (124, 50)], fill=(236, 242, 246, 255))
+    pen.line((58, 92, 96, 118), fill=(232, 186, 74, 255), width=8)
+    pen.line((46, 138, 62, 122), fill=(196, 140, 48, 255), width=8)
+    return image.resize((80, 80), Image.Resampling.LANCZOS)
+
+
 def _paste_icon(canvas, key, box, inset):
     key = (key or "").strip()
     if not key or key == "none":
@@ -194,6 +273,10 @@ def _paste_icon(canvas, key, box, inset):
     origin_x = left + (width - sized.width) // 2
     origin_y = top + (height - sized.height) // 2
     canvas.alpha_composite(sized, (origin_x, origin_y))
+
+
+def _ascension_label(data):
+    return {"1": "I", "2": "II", "3": "III"}.get(str(data.get("ascension_level") or "").strip(), "")
 
 
 def _contrast(canvas, style):

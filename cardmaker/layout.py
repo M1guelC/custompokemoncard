@@ -70,15 +70,30 @@ def _text(field_id, label, multiline=False):
     return {"id": field_id, "label": label, "type": kind}
 
 
-def _picture():
-    return {
-        "title": "Picture",
-        "fields": [
-            {"id": "image", "label": "Artwork", "type": "image"},
-            {"id": "zoom", "label": "Zoom", "type": "range", "min": 100, "max": 220},
-            {"id": "focus", "label": "Vertical focus", "type": "range", "min": 0, "max": 100},
-        ],
-    }
+# Sits in the right end of the name plate. The name box shrinks so they do not overlap.
+ASCENSION_MARK = {
+    "box": (1008, 72, 1124, 168),
+    "font": "display",
+    "size": 48,
+    "fill": (20, 16, 24),
+    "stroke": (255, 255, 255),
+    "stroke_width": 2,
+    "align": "center",
+    "auto_contrast": True,
+}
+
+
+def _picture(skill=False):
+    fields = [
+        {"id": "image", "label": "Artwork", "type": "image"},
+        {"id": "zoom", "label": "Zoom", "type": "range", "min": 100, "max": 220},
+        {"id": "focus", "label": "Vertical focus", "type": "range", "min": 0, "max": 100},
+    ]
+    if skill:
+        fields.append(
+            {"id": "skill_opacity", "label": "Skill background", "type": "range", "min": 0, "max": 100}
+        )
+    return {"title": "Picture", "fields": fields}
 
 
 def _identity(extra=None):
@@ -128,10 +143,21 @@ def _move(prefix, title, power_label):
 CHARACTER = {
     "id": "character",
     "label": "Character",
-    "description": "Fighter card with a portrait, stats, two moves, and a passive.",
+    "description": "Fighter card with a portrait, stats, two moves, and a passive. Ascension reprints it with better stats.",
     "flip": True,
+    "ascension": [
+        "hp",
+        "speed",
+        "move1_value",
+        "move1_text",
+        "move2_value",
+        "move2_text",
+        "move3_text",
+    ],
+    "ascension_mark": ASCENSION_MARK,
     "size": (1280, 1792),
     "frame": "character/{rarity}.png",
+    "skill_panel": "panels/character.png",
     "art": (0, 0, 1280, 1792),
     "empty_box": (260, 460, 1020, 700),
     "empty_label": "Add a picture",
@@ -171,7 +197,7 @@ CHARACTER = {
         {"id": "tag", "box": (1068, 982, 1212, 1012), "font": "display", "size": 22, "fill": (255, 255, 255), "align": "center"},
     ],
     "sections": [
-        _picture(),
+        _picture(skill=True),
         _identity(),
         _stats(),
         _learn(),
@@ -182,6 +208,7 @@ CHARACTER = {
     "defaults": {
         "zoom": "100",
         "focus": "35",
+        "skill_opacity": "40",
         "name": "Shura",
         "rarity": "EX",
         "type": "fight",
@@ -215,6 +242,7 @@ ENEMY = {
     "flip": True,
     "size": (1280, 1792),
     "frame": "enemy/{rarity}.png",
+    "skill_panel": "panels/enemy.png",
     "art": (0, 0, 1280, 1792),
     "empty_box": (260, 430, 1020, 760),
     "empty_label": "Add a picture",
@@ -225,6 +253,10 @@ ENEMY = {
         (130, 1008, 174, 1052),
         (184, 1008, 228, 1052),
         (238, 1008, 282, 1052),
+    ],
+    "drop_icons": [
+        {"file": "item", "box": (844, 1086, 924, 1166)},
+        {"file": "equipment", "box": (1018, 1086, 1098, 1166)},
     ],
     "moves": [
         {
@@ -247,10 +279,12 @@ ENEMY = {
         {"id": "speed", "box": (1090, 332, 1170, 386), "font": "number", "size": 42, "fill": (255, 255, 255), "align": "center"},
         {"id": "tag", "box": (1068, 1016, 1212, 1048), "font": "display", "size": 20, "fill": (255, 255, 255), "align": "center"},
         {"id": "drop_event", "box": (588, 1094, 690, 1142), "font": "number", "size": 36, "fill": (255, 255, 255), "stroke": (20, 16, 24), "stroke_width": 2, "align": "center"},
-        {"id": "drop_wish", "box": (730, 1094, 840, 1142), "font": "number", "size": 36, "fill": (255, 255, 255), "stroke": (20, 16, 24), "stroke_width": 2, "align": "center"},
+        {"id": "drop_wish", "box": (748, 1094, 832, 1142), "font": "number", "size": 36, "fill": (255, 255, 255), "stroke": (20, 16, 24), "stroke_width": 2, "align": "center"},
+        {"id": "drop_item", "box": (930, 1098, 1004, 1146), "font": "number", "size": 32, "fill": (255, 255, 255), "stroke": (20, 16, 24), "stroke_width": 2, "align": "center"},
+        {"id": "drop_equipment", "box": (1104, 1098, 1172, 1146), "font": "number", "size": 32, "fill": (255, 255, 255), "stroke": (20, 16, 24), "stroke_width": 2, "align": "center"},
     ],
     "sections": [
-        _picture(),
+        _picture(skill=True),
         _identity(),
         _stats(),
         _learn(),
@@ -261,12 +295,15 @@ ENEMY = {
             "fields": [
                 _text("drop_event", "Event cards"),
                 _text("drop_wish", "Wish tokens"),
+                _text("drop_item", "Item cards"),
+                _text("drop_equipment", "Equipment"),
             ],
         },
     ],
     "defaults": {
         "zoom": "100",
         "focus": "30",
+        "skill_opacity": "40",
         "name": "Alchemist",
         "rarity": "SSR",
         "type": "poison",
@@ -288,6 +325,8 @@ ENEMY = {
         "move2_text": "When the user's HP is below half, restore the user to full health.\n[1 use per battle]",
         "drop_event": "x1",
         "drop_wish": "x2",
+        "drop_item": "x1",
+        "drop_equipment": "x1",
     },
 }
 
@@ -496,13 +535,13 @@ BUILD_JOBS = [
         "file": "Cards/Character Template.psd",
         "out": "character/{rarity}.png",
         "rarities": RARITIES,
-        "hide": ["artery gear", "character", "arknight", "azur lane", "background copy"],
+        "hide": ["artery gear", "character", "arknight", "azur lane", "background copy", "ability box"],
     },
     {
         "file": "Cards/Enemies Template.psd",
         "out": "enemy/{rarity}.png",
         "rarities": RARITIES,
-        "hide": ["arknight", "background copy", "layer 71", "color bg"],
+        "hide": ["arknight", "background copy", "layer 71", "color bg", "ability box"],
     },
     {
         "file": "Cards/Round ,Event and Items Card Template.psd",

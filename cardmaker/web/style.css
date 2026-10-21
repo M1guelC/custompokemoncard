@@ -12,6 +12,8 @@
 
 * { box-sizing: border-box; }
 
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   background:
@@ -99,6 +101,13 @@ form { padding: 14px; }
   margin: 4px 4px 14px;
   color: var(--muted);
   min-height: 2.6em;
+}
+
+.ascension { margin: 0 0 4px; }
+
+.ascension-note {
+  margin: 2px 4px 12px;
+  color: var(--muted);
 }
 
 section {
