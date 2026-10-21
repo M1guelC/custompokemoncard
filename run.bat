@@ -1,5 +1,5 @@
 @echo off
-setlocal EnableExtensions
+setlocal EnableExtensions EnableDelayedExpansion
 cd /d "%~dp0"
 
 where docker >nul 2>&1
@@ -21,25 +21,44 @@ if not defined CARD_PORT (
   goto fail
 )
 
+echo Building the image if this is the first time, then starting the card server.
+echo The first start reads the Photoshop templates and can take several minutes.
 docker compose up -d --build
 if errorlevel 1 goto fail
 
-echo Waiting for the card server...
-for /l %%I in (1,1,180) do (
-  curl.exe -sf -o NUL "http://127.0.0.1:%CARD_PORT%/"
-  if not errorlevel 1 goto ready
-  timeout /t 2 /nobreak >nul
-)
+echo Waiting for the card server on port !CARD_PORT!...
+set /a TRIES=0
+
+:waitloop
+set /a TRIES+=1
+if !TRIES! GTR 180 goto notready
+curl.exe -sf -o NUL "http://127.0.0.1:!CARD_PORT!/"
+if not errorlevel 1 goto ready
+docker compose ps -a --format "{{.State}}" | findstr /i "exited" >nul
+if not errorlevel 1 goto died
+echo Still starting. Preparing the card frames can take several minutes.
+docker compose logs --tail 6
+timeout /t 5 /nobreak >nul
+goto waitloop
+
+:died
+echo The card server stopped while starting.
+docker compose logs --tail 80
+docker compose down
+goto fail
+
+:notready
 echo The card server did not start.
-docker compose logs
+docker compose logs --tail 80
 docker compose down
 goto fail
 
 :ready
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0desktop\open_window.ps1" "http://127.0.0.1:%CARD_PORT%"
-set CODE=%ERRORLEVEL%
+echo Card server is ready. Opening the window...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0desktop\open_window.ps1" "http://127.0.0.1:!CARD_PORT!"
+set CODE=!ERRORLEVEL!
 docker compose down
-exit /b %CODE%
+exit /b !CODE!
 
 :fail
 echo.

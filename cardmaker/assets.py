@@ -132,11 +132,11 @@ def build_icons():
         if path.exists():
             continue
         _save(image, path)
-        print(f"  icon {key}")
+        print(f"  icon {key}", flush=True)
 
     missing = [key for key in TYPES if not (icon_dir / f"{type_slug(key)}.png").exists()]
     if missing:
-        print("  no artwork for:", ", ".join(missing))
+        print("  no artwork for:", ", ".join(missing), flush=True)
     documents.clear()
 
 
@@ -154,11 +154,11 @@ def build_frames():
                     continue
                 source = job["file"]
                 if source not in opened:
-                    print(f"Opening {source}")
+                    print(f"Opening {source}", flush=True)
                     opened[source] = PSDImage.open(CONTENT / source)
                 psd = opened[source]
                 label = relative
-                print(f"  frame {label}")
+                print(f"  frame {label}", flush=True)
                 _apply(psd, job, rarity, style)
                 _save(_composite(psd), path)
         opened.clear()
@@ -171,11 +171,11 @@ def ensure_cache():
 
         shutil.rmtree(CACHE)
     CACHE.mkdir(parents=True, exist_ok=True)
-    print("Preparing card frames from Custom Content…")
+    print("Preparing card frames from Custom Content…", flush=True)
     build_icons()
     build_frames()
     version_path.write_text(VERSION)
-    print("Frames ready.")
+    print("Frames ready.", flush=True)
 
 
 if __name__ == "__main__":

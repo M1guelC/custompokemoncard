@@ -209,6 +209,8 @@ def electron_command(url):
 
 
 def serve():
+    if _server_only():
+        print("Starting the card server…", flush=True)
     server = start_server()
     _host, port = server.server_address
     if _server_only():
