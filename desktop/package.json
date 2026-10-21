@@ -1,0 +1,12 @@
+{
+  "name": "card-creator",
+  "private": true,
+  "main": "main.js",
+  "description": "Desktop window for the card creator.",
+  "scripts": {
+    "postinstall": "node install-window.js"
+  },
+  "devDependencies": {
+    "electron": "^45.0.0"
+  }
+}

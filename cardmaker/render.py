@@ -40,11 +40,18 @@ MOVE_TEXT_STYLE = {
 }
 
 
-def render_png(card_id, data, photo, side="front"):
+def render_png(card_id, data, photo, side="front", preview=False):
     image = render(card_id, data, photo, side)
     buffer = BytesIO()
+    if preview:
+        # The window only shows the card at screen size. A small JPEG is
+        # what makes typing feel immediate; Download still asks for the PNG.
+        image = image.copy()
+        image.thumbnail((1000, 1400), Image.Resampling.LANCZOS)
+        image.convert("RGB").save(buffer, "JPEG", quality=84)
+        return buffer.getvalue(), "image/jpeg"
     image.convert("RGBA").save(buffer, "PNG", optimize=False, compress_level=1)
-    return buffer.getvalue()
+    return buffer.getvalue(), "image/png"
 
 
 def render(card_id, data, photo, side="front"):

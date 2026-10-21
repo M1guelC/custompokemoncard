@@ -18,14 +18,26 @@ flipButton.addEventListener("click", () => {
   schedule(0);
 });
 
-downloadButton.addEventListener("click", () => {
-  if (!lastUrl) return;
+downloadButton.addEventListener("click", async () => {
+  status.textContent = "Preparing the full card…";
+  const body = new FormData(editor);
+  body.set("card", cardId);
+  body.set("side", side);
+  body.set("purpose", "download");
+  const response = await fetch("/api/preview", { method: "POST", body });
+  if (!response.ok || !response.headers.get("content-type")?.includes("image")) {
+    status.textContent = "The card could not be saved.";
+    return;
+  }
+  const blob = await response.blob();
   const values = currentValues();
   const name = (values.name || values.title || "card").replace(/[^\w\-]+/g, "-");
   const link = document.createElement("a");
-  link.href = lastUrl;
+  link.href = URL.createObjectURL(blob);
   link.download = `${name}-${side}.png`;
   link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1500);
+  status.textContent = side === "back" ? "Showing the back." : "Showing the front.";
 });
 
 load();
@@ -197,6 +209,7 @@ async function refresh() {
   const body = new FormData(editor);
   body.set("card", cardId);
   body.set("side", side);
+  body.set("purpose", "preview");
   const response = await fetch("/api/preview", { method: "POST", body });
   if (id !== requestId) return;
   if (!response.ok || !response.headers.get("content-type")?.includes("image")) {

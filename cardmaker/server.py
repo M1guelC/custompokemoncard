@@ -2,6 +2,9 @@
 
 import json
 import mimetypes
+import os
+import shutil
+import subprocess
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -107,13 +110,14 @@ class Handler(BaseHTTPRequestHandler):
             self._bytes(b'{"error":"Unknown card."}', "application/json", 400)
             return
         side = incoming.get("side") or "front"
+        preview = incoming.get("purpose") != "download"
         try:
-            png = render_png(card_id, merged(card_id, incoming), photo, side)
+            payload, mime = render_png(card_id, merged(card_id, incoming), photo, side, preview)
         except Exception as error:
             message = json.dumps({"error": f"Could not draw the card. {error}"})
             self._bytes(message.encode(), "application/json", 500)
             return
-        self._bytes(png, "image/png")
+        self._bytes(payload, mime)
 
     def _file(self, path):
         mime, _ = mimetypes.guess_type(str(path))
@@ -140,27 +144,82 @@ def start_server():
     return server
 
 
+def _wsl():
+    try:
+        return "microsoft" in Path("/proc/version").read_text().lower()
+    except OSError:
+        return False
+
+
+def _windows_path(path):
+    return subprocess.check_output(["wslpath", "-w", str(path)], text=True).strip()
+
+
+def _windows_app():
+    """Copy Electron onto the Windows drive. A copy that stays on the WSL
+    drive cannot start its own graphics process."""
+    local = subprocess.check_output(
+        ["cmd.exe", "/c", "echo %LOCALAPPDATA%"],
+        text=True,
+        cwd="/mnt/c",
+        stderr=subprocess.DEVNULL,
+    ).strip()
+    root = Path(subprocess.check_output(["wslpath", "-u", local], text=True).strip()) / "card-creator"
+    desktop = Path(__file__).resolve().parent.parent / "desktop"
+    dist = desktop / "node_modules" / "electron" / "dist"
+    version = (dist / "version").read_text().strip()
+    runtime = root / "runtime"
+    marker = runtime / "version"
+    if not marker.is_file() or marker.read_text().strip() != version:
+        if runtime.exists():
+            shutil.rmtree(runtime)
+        print("Preparing the window…", flush=True)
+        shutil.copytree(dist, runtime)
+    app_dir = root / "app"
+    app_dir.mkdir(parents=True, exist_ok=True)
+    for name in ("main.js", "package.json"):
+        shutil.copy2(desktop / name, app_dir / name)
+    return runtime / "electron.exe", _windows_path(app_dir)
+
+
+def electron_command(url):
+    desktop = Path(__file__).resolve().parent.parent / "desktop"
+    dist = desktop / "node_modules" / "electron" / "dist"
+    windows = dist / "electron.exe"
+    linux = dist / "electron"
+    flag = f"--card-url={url}"
+    if _wsl() and windows.is_file():
+        executable, app_dir = _windows_app()
+        return [str(executable), app_dir, "--", flag]
+    if linux.is_file():
+        return [str(linux), str(desktop), "--", flag]
+    if windows.is_file():
+        return [str(windows), str(desktop), "--", flag]
+    raise SystemExit("Install the window with:\n  cd desktop && npm install")
+
+
 def serve():
     server = start_server()
     _host, port = server.server_address
     url = f"http://{HOST}:{port}"
     print(f"Card creator is running at {url}", flush=True)
+    env = os.environ.copy()
+    env["CARD_URL"] = url
+    shared = [part for part in env.get("WSLENV", "").split(":") if part and not part.startswith("CARD_URL")]
+    shared.append("CARD_URL")
+    env["WSLENV"] = ":".join(shared)
     try:
-        import webview
-    except ImportError as error:
+        command = electron_command(url)
+    except SystemExit:
         server.shutdown()
-        raise SystemExit(
-            "Install the desktop window with:\n  .venv/bin/pip install -r requirements.txt"
-        ) from error
-    webview.create_window(
-        "Card creator",
-        url,
-        width=1280,
-        height=880,
-        min_size=(980, 680),
-    )
+        server.server_close()
+        raise
+    executable = Path(command[0])
+    # Windows exits immediately when the working directory is a WSL path.
+    cwd = str(executable.parent) if executable.suffix.lower() == ".exe" else None
+    process = subprocess.Popen(command, env=env, cwd=cwd)
     try:
-        webview.start(gui="qt")
+        process.wait()
     finally:
         server.shutdown()
         server.server_close()
