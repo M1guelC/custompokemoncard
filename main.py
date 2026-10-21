@@ -11,7 +11,8 @@ def main():
         if venv.exists() and Path(sys.executable).resolve() != venv.resolve():
             os.execv(str(venv), [str(venv), *sys.argv])
         raise SystemExit(
-            "Install the dependencies with:\n  .venv/bin/pip install -r requirements.txt"
+            "Install the dependencies with:\n  .venv/bin/pip install -r requirements.txt\n"
+            "Or start the container with:\n  ./run"
         )
     serve()
 

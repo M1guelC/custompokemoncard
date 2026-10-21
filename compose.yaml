@@ -1,0 +1,16 @@
+services:
+  app:
+    build: .
+    image: card-creator
+    init: true
+    working_dir: /app
+    user: "${CARD_UID:-1000}:${CARD_GID:-1000}"
+    volumes:
+      - .:/app
+    ports:
+      - "127.0.0.1:${CARD_PORT:-8765}:8765"
+    environment:
+      CARD_CONTAINER: "1"
+      CARD_SERVER_ONLY: "1"
+      PORT: "8765"
+      HOME: /tmp

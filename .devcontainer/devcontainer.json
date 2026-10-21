@@ -1,0 +1,8 @@
+{
+  "name": "Card creator",
+  "dockerComposeFile": "../compose.yaml",
+  "service": "app",
+  "workspaceFolder": "/app",
+  "shutdownAction": "none",
+  "overrideCommand": true
+}

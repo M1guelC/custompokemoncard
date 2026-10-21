@@ -2,7 +2,19 @@
 
 Desktop app for custom cards. The frames, icons, fonts, and printed backs come from `Custom Content`. Drop in a picture, edit the words, and the preview updates in the window.
 
-## Setup
+## Run
+
+Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) and start it. On WSL, also turn on Settings > Resources > WSL integration for this distro. Then, from the project folder:
+
+```bash
+./run
+```
+
+That is the only command. Docker runs the Python side that draws the cards. The window is the Windows Electron app, on the Windows desktop. The first run builds the image and can take a few minutes. The first time the server starts, it also prepares the card frames from the Photoshop templates.
+
+In Cursor or VS Code, **Reopen in Container** opens that same Python environment. Use `./run` when you want the window.
+
+## Setup without Docker
 
 Python 3.10 or newer, and Node.js 22.12 or newer. The editor opens in an Electron window. Python still draws the cards.
 

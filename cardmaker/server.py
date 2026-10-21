@@ -136,9 +136,19 @@ class Handler(BaseHTTPRequestHandler):
             super().log_message(fmt, *args)
 
 
+def _server_only():
+    return os.environ.get("CARD_SERVER_ONLY") == "1" or os.environ.get("CARD_CONTAINER") == "1"
+
+
 def start_server():
     ensure_cache()
-    server = ThreadingHTTPServer((HOST, 0), Handler)
+    if _server_only():
+        host = "0.0.0.0"
+        port = int(os.environ.get("PORT", "8765"))
+    else:
+        host = HOST
+        port = 0
+    server = ThreadingHTTPServer((host, port), Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     return server
@@ -201,6 +211,14 @@ def electron_command(url):
 def serve():
     server = start_server()
     _host, port = server.server_address
+    if _server_only():
+        print(f"Card creator server is running on port {port}", flush=True)
+        try:
+            threading.Event().wait()
+        finally:
+            server.shutdown()
+            server.server_close()
+        return
     url = f"http://{HOST}:{port}"
     print(f"Card creator is running at {url}", flush=True)
     env = os.environ.copy()

@@ -10,7 +10,8 @@ try {
 } catch (_error) {
   wsl = false;
 }
-if (wsl && !env.ELECTRON_INSTALL_PLATFORM && !env.npm_config_platform) {
+const inContainer = fs.existsSync("/.dockerenv") || env.CARD_CONTAINER === "1";
+if (wsl && !inContainer && !env.ELECTRON_INSTALL_PLATFORM && !env.npm_config_platform) {
   env.ELECTRON_INSTALL_PLATFORM = "win32";
   env.ELECTRON_INSTALL_ARCH = env.ELECTRON_INSTALL_ARCH || env.npm_config_arch || "x64";
 }

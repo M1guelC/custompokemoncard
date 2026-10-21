@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# One command: the container draws the cards, and Windows Electron shows them.
+set -euo pipefail
+cd "$(dirname "$0")"
+
+if ! command -v docker >/dev/null 2>&1; then
+  echo "Docker is not available in this terminal."
+  echo "Install Docker Desktop, start it, and on WSL enable Settings > Resources > WSL integration for this distro."
+  echo "Then run ./run again."
+  exit 1
+fi
+
+if ! docker info >/dev/null 2>&1; then
+  echo "Docker is installed, but the engine is not running. Start Docker Desktop, then run ./run again."
+  exit 1
+fi
+
+export CARD_UID="$(id -u)"
+export CARD_GID="$(id -g)"
+CARD_PORT="$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1]); s.close()')"
+export CARD_PORT
+
+cleanup() {
+  docker compose down >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
+
+docker compose up -d --build
+
+echo "Waiting for the card server…"
+ready=0
+for _ in $(seq 1 180); do
+  if curl -sf -o /dev/null "http://127.0.0.1:${CARD_PORT}/"; then
+    ready=1
+    break
+  fi
+  sleep 2
+done
+if [[ "$ready" != 1 ]]; then
+  echo "The card server did not start."
+  docker compose logs
+  exit 1
+fi
+
+python3 desktop/open_window.py "http://127.0.0.1:${CARD_PORT}"
