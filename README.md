@@ -6,11 +6,7 @@ Desktop app for custom cards. The frames, icons, fonts, and printed backs come f
 
 Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) and start it.
 
-On Windows, double-click `run.bat`, or from the project folder in Command Prompt or PowerShell:
-
-```bat
-run.bat
-```
+On Windows, double-click `run.vbs`. That starts the app without leaving a command window open. From Command Prompt or PowerShell, `run.bat` still shows the progress text.
 
 On WSL or Linux, from the project folder:
 
