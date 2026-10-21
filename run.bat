@@ -36,12 +36,7 @@ docker compose down
 goto fail
 
 :ready
-where py >nul 2>&1
-if not errorlevel 1 (
-  py -3 desktop\open_window.py "http://127.0.0.1:%CARD_PORT%"
-) else (
-  python desktop\open_window.py "http://127.0.0.1:%CARD_PORT%"
-)
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0desktop\open_window.ps1" "http://127.0.0.1:%CARD_PORT%"
 set CODE=%ERRORLEVEL%
 docker compose down
 exit /b %CODE%
