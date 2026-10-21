@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Card creator</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <p class="eyebrow">Custom Content</p>
+        <h1>Card creator</h1>
+      </div>
+      <p class="lede">Pick a template, drop in your picture, and edit the words. The preview uses the frames, icons, fonts, and backs already in the folder.</p>
+    </header>
+    <div class="layout">
+      <form id="editor"></form>
+      <aside class="stage">
+        <div class="stage-bar">
+          <strong id="side-label">Front</strong>
+          <div class="stage-actions">
+            <button type="button" id="flip">Flip</button>
+            <button type="button" id="download">Download</button>
+          </div>
+        </div>
+        <div class="mat">
+          <img id="preview" alt="Card preview">
+        </div>
+        <p id="status">Loading the templates…</p>
+      </aside>
+    </div>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>
