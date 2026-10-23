@@ -44,6 +44,12 @@ cd desktop && npm install && cd ..
 
 The first launch builds the card frames from the Photoshop templates. That can take a few minutes, and then the window opens. Later launches open right away.
 
+## Deploy on Vercel
+
+Import this repository in [Vercel](https://vercel.com). Leave the build command alone. Vercel installs the Python packages, prepares the card frames from the Photoshop templates, and serves the editor on the web. There is no desktop window on that site. Download still saves the card.
+
+The frame step runs on every deploy and can take several minutes. A picture upload has to fit Vercel's request size limit.
+
 ## Use
 
 Pick Character, Enemy, Round / event / item, Card back, or Booster. Upload a picture, change the text, and use Zoom and Vertical focus to crop it. Flip shows the other side. Download saves the side on screen.

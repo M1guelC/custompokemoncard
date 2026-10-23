@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from io import BytesIO
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
@@ -50,79 +51,100 @@ def merged(card_id, incoming):
     return data
 
 
+def answer(method, path, content_type, body):
+    """One response path for the desktop server and the Vercel app."""
+    path = urlparse(path).path or "/"
+    if method == "GET":
+        return _get(path)
+    if method == "POST":
+        return _post(path, content_type, body or b"")
+    return 405, "text/plain", b"Method not allowed"
+
+
+def _get(path):
+    if path == "/api/schema":
+        return 200, "application/json", json.dumps(schema()).encode()
+    if path.startswith("/icons/"):
+        slug = path.split("/", 2)[-1]
+        file_path = CACHE / "icons" / Path(slug).name
+        if file_path.is_file():
+            return 200, "image/png", file_path.read_bytes()
+        return 404, "text/plain", b"Not found"
+    if path == "/":
+        return _web_file(WEB / "index.html")
+    relative = unquote(path.lstrip("/"))
+    file_path = (WEB / relative).resolve()
+    if WEB.resolve() in file_path.parents and file_path.is_file():
+        return _web_file(file_path)
+    return 404, "text/plain", b"Not found"
+
+
+def _web_file(path):
+    mime, _ = mimetypes.guess_type(str(path))
+    return 200, mime or "application/octet-stream", path.read_bytes()
+
+
+def _post(path, content_type, body):
+    if path != "/api/preview":
+        return 404, "text/plain", b"Not found"
+    if len(body) > 25_000_000:
+        return 413, "application/json", b'{"error":"That picture is too large."}'
+    form = cgi.FieldStorage(
+        fp=BytesIO(body),
+        headers={"content-type": content_type or "", "content-length": str(len(body))},
+        environ={
+            "REQUEST_METHOD": "POST",
+            "CONTENT_TYPE": content_type or "",
+            "CONTENT_LENGTH": str(len(body)),
+        },
+    )
+    incoming = {}
+    photo = None
+    if form.list:
+        for item in form.list:
+            if getattr(item, "filename", None):
+                raw = item.file.read()
+                if raw:
+                    try:
+                        photo = open_photo(raw)
+                    except Exception:
+                        return 400, "application/json", b'{"error":"That picture could not be opened."}'
+            elif item.name:
+                incoming[item.name] = item.value
+    card_id = incoming.get("card") or "character"
+    if card_id not in CARDS:
+        return 400, "application/json", b'{"error":"Unknown card."}'
+    side = incoming.get("side") or "front"
+    preview = incoming.get("purpose") != "download"
+    try:
+        payload, mime = render_png(card_id, merged(card_id, incoming), photo, side, preview)
+    except Exception as error:
+        message = json.dumps({"error": f"Could not draw the card. {error}"})
+        return 500, "application/json", message.encode()
+    return 200, mime, payload
+
+
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        path = urlparse(self.path).path
-        if path == "/api/schema":
-            self._bytes(json.dumps(schema()).encode(), "application/json")
-            return
-        if path.startswith("/icons/"):
-            slug = path.split("/", 2)[-1]
-            file_path = CACHE / "icons" / Path(slug).name
-            if file_path.is_file():
-                self._bytes(file_path.read_bytes(), "image/png")
-                return
+        status, content_type, payload = answer("GET", self.path, "", b"")
+        if status == 404:
             self.send_error(404)
             return
-        if path == "/":
-            self._file(WEB / "index.html")
-            return
-        relative = unquote(path.lstrip("/"))
-        file_path = (WEB / relative).resolve()
-        if WEB.resolve() in file_path.parents and file_path.is_file():
-            self._file(file_path)
-            return
-        self.send_error(404)
+        self._bytes(payload, content_type, status)
 
     def do_POST(self):
-        path = urlparse(self.path).path
-        if path != "/api/preview":
+        length = int(self.headers.get("Content-Length", "0") or "0")
+        body = self.rfile.read(length)
+        status, content_type, payload = answer(
+            "POST",
+            self.path,
+            self.headers.get("Content-Type", ""),
+            body,
+        )
+        if status == 404:
             self.send_error(404)
             return
-        length = int(self.headers.get("Content-Length", "0") or "0")
-        if length > 25_000_000:
-            self._bytes(b'{"error":"That picture is too large."}', "application/json", 413)
-            return
-        form = cgi.FieldStorage(
-            fp=self.rfile,
-            headers=self.headers,
-            environ={
-                "REQUEST_METHOD": "POST",
-                "CONTENT_TYPE": self.headers.get("Content-Type", ""),
-                "CONTENT_LENGTH": self.headers.get("Content-Length", "0"),
-            },
-        )
-        incoming = {}
-        photo = None
-        if form.list:
-            for item in form.list:
-                if getattr(item, "filename", None):
-                    raw = item.file.read()
-                    if raw:
-                        try:
-                            photo = open_photo(raw)
-                        except Exception:
-                            self._bytes(b'{"error":"That picture could not be opened."}', "application/json", 400)
-                            return
-                elif item.name:
-                    incoming[item.name] = item.value
-        card_id = incoming.get("card") or "character"
-        if card_id not in CARDS:
-            self._bytes(b'{"error":"Unknown card."}', "application/json", 400)
-            return
-        side = incoming.get("side") or "front"
-        preview = incoming.get("purpose") != "download"
-        try:
-            payload, mime = render_png(card_id, merged(card_id, incoming), photo, side, preview)
-        except Exception as error:
-            message = json.dumps({"error": f"Could not draw the card. {error}"})
-            self._bytes(message.encode(), "application/json", 500)
-            return
-        self._bytes(payload, mime)
-
-    def _file(self, path):
-        mime, _ = mimetypes.guess_type(str(path))
-        self._bytes(path.read_bytes(), mime or "application/octet-stream")
+        self._bytes(payload, content_type, status)
 
     def _bytes(self, payload, content_type, status=200):
         self.send_response(status)

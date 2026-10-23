@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "python -c \"from cardmaker.assets import ensure_cache; ensure_cache()\"",
+  "functions": {
+    "app.py": {
+      "maxDuration": 60,
+      "includeFiles": "{cache/**,Custom Content/Custom Content/Fonts/**,Custom Content/Custom Content/Card Backs/**}",
+      "excludeFiles": "{desktop/**,.venv/**,**/*.psd,**/node_modules/**}"
+    }
+  }
+}
